@@ -9,7 +9,7 @@ module Ethereum
     attr_accessor :code, :name, :abi, :class_object, :sender, :deployment, :client
     attr_accessor :events, :functions, :constructor_inputs
     attr_accessor :call_raw_proxy, :call_proxy, :transact_proxy, :transact_and_wait_proxy
-    attr_accessor :new_filter_proxy, :get_filter_logs_proxy, :get_filter_change_proxy
+    attr_accessor :new_filter_proxy, :get_filter_logs_proxy, :get_filter_change_proxy, :get_logs_proxy
 
     def initialize(name, code, abi, client = Ethereum::Singleton.instance)
       @name = name
@@ -233,6 +233,10 @@ module Ethereum
       parse_filter_data evt, @client.eth_get_filter_changes(filter_id)
     end
 
+    def get_logs(evt, params)
+      parse_filter_data evt, @client.eth_get_logs(params)
+    end
+
     def function_name(fun)
       count = functions.select {|x| x.name == fun.name }.count
       name = (count == 1) ? "#{fun.name.underscore}" : "#{fun.name.underscore}__#{fun.inputs.collect {|x| x.type}.join("__")}"
@@ -259,6 +263,7 @@ module Ethereum
         def_delegator :parent, :new_filter_proxy, :new_filter
         def_delegator :parent, :get_filter_logs_proxy, :get_filter_logs
         def_delegator :parent, :get_filter_change_proxy, :get_filter_changes
+        def_delegator :parent, :get_logs_proxy, :get_logs
         define_method :parent do
           parent
         end
@@ -329,13 +334,14 @@ module Ethereum
 
       def create_event_proxies
         parent = self
-        new_filter_proxy, get_filter_logs_proxy, get_filter_change_proxy = Class.new, Class.new, Class.new
+        new_filter_proxy, get_filter_logs_proxy, get_filter_change_proxy, get_logs_proxy = Class.new, Class.new, Class.new, Class.new
         events.each do |evt|
           new_filter_proxy.send(:define_method, evt.name.underscore) { |*args| parent.create_filter(evt, *args) }
           get_filter_logs_proxy.send(:define_method, evt.name.underscore) { |*args| parent.get_filter_logs(evt, *args) }
           get_filter_change_proxy.send(:define_method, evt.name.underscore) { |*args| parent.get_filter_changes(evt, *args) }
+          get_logs_proxy.send(:define_method, evt.name.underscore) { |*args| parent.get_logs(evt, *args) }
         end
-        @new_filter_proxy, @get_filter_logs_proxy, @get_filter_change_proxy = new_filter_proxy.new, get_filter_logs_proxy.new, get_filter_change_proxy.new
+        @new_filter_proxy, @get_filter_logs_proxy, @get_filter_change_proxy, @get_logs_proxy = new_filter_proxy.new, get_filter_logs_proxy.new, get_filter_change_proxy.new, get_logs_proxy
       end
   end
 end
